@@ -7,8 +7,8 @@
     <ProjectGuid>{611888AC-7FFC-456D-A0FD-B37A1B9AACF0}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Doway.Tools.WebsiteThief</RootNamespace>
-    <AssemblyName>Doway.Tools.WebsiteThief</AssemblyName>
+    <RootNamespace>Doway.Tools.Robinhood</RootNamespace>
+    <AssemblyName>Doway.Tools.Robinhood</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

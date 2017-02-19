@@ -6,14 +6,14 @@ using System.IO;
 using System.Net;
 using System.Text;
 
-namespace Doway.Tools.WebsiteThief
+namespace Doway.Tools.Robinhood
 {
     class Program
     {
         private static readonly ILog _logger = LogManager.GetLogger(typeof(Program));
         static void Main(string[] args)
         {
-            GlobalContext.Properties["appname"] = "WebsiteThief";
+            GlobalContext.Properties["appname"] = "Robinhood";
             XmlConfigurator.ConfigureAndWatch(new FileInfo("log4net.config"));
             try
             {
