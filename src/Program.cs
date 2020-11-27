@@ -17,14 +17,13 @@ namespace Doway.Tools.Robinhood
             XmlConfigurator.ConfigureAndWatch(new FileInfo("log4net.config"));
             try
             {
-                string url = args[0];
+                var url = args[0];
                 using (var client = new WebClient())
                 {
-                    string responseHtml = Encoding.UTF8.GetString(client.DownloadData(url));
-                    Uri uri = new Uri(url);
-                    HtmlDocument doc = new HtmlDocument();
-                    bool uriChanged = false;
-                    SaveFile(uri, responseHtml, false, out uriChanged);
+                    var responseHtml = Encoding.UTF8.GetString(client.DownloadData(url));
+                    var uri = new Uri(url);
+                    var doc = new HtmlDocument();
+                    SaveFile(uri, responseHtml, false, out bool uriChanged);
                     doc.LoadHtml(responseHtml);
                     foreach (var node in doc.DocumentNode.ChildNodes)
                         Handle(node, client, ref uri);
@@ -53,15 +52,15 @@ namespace Doway.Tools.Robinhood
                     case "a":
                     case "link":
                         {
-                            bool uriChanged = false;
-                            string url = (null == node.Attributes["href"]) ? null : node.Attributes["href"].Value;
+                            var uriChanged = false;
+                            var url = node.Attributes["href"]?.Value;
                             if (!string.IsNullOrWhiteSpace(url))
                             {
-                                Uri uri = new Uri(url);
+                                var uri = new Uri(url);
                                 if (uri.Authority == orgUri.Authority)
                                 {
-                                    byte[] data = client.DownloadData(url);
-                                    string localPath = uri.LocalPath.ToLower();
+                                    var data = client.DownloadData(url);
+                                    var localPath = uri.LocalPath.ToLower();
                                     if (localPath.EndsWith(".jpg") ||
                                         localPath.EndsWith(".jpeg") ||
                                         localPath.EndsWith(".gif") ||
@@ -74,7 +73,7 @@ namespace Doway.Tools.Robinhood
                                     }
                                     else
                                     {
-                                        string responseHtml = Encoding.UTF8.GetString(data);
+                                        var responseHtml = Encoding.UTF8.GetString(data);
                                         var u = SaveFile(uri, responseHtml, false, out uriChanged);
                                         url = u.OriginalString;
                                     }
@@ -86,15 +85,15 @@ namespace Doway.Tools.Robinhood
                     case "img":
                     case "script":
                         {
-                            bool uriChanged = false;
-                            string url = (null == node.Attributes["src"]) ? null : node.Attributes["src"].Value;
+                            var uriChanged = false;
+                            var url = node.Attributes["src"]?.Value;
                             if (!string.IsNullOrWhiteSpace(url))
                             {
-                                Uri uri = new Uri(url);
+                                var uri = new Uri(url);
                                 if (uri.Authority == orgUri.Authority)
                                 {
-                                    byte[] data = client.DownloadData(url);
-                                    string localPath = uri.LocalPath.ToLower();
+                                    var data = client.DownloadData(url);
+                                    var localPath = uri.LocalPath.ToLower();
                                     if (localPath.EndsWith(".jpg") ||
                                         localPath.EndsWith(".jpeg") ||
                                         localPath.EndsWith(".gif") ||
@@ -107,7 +106,7 @@ namespace Doway.Tools.Robinhood
                                     }
                                     else
                                     {
-                                        string responseHtml = Encoding.UTF8.GetString(data);
+                                        var responseHtml = Encoding.UTF8.GetString(data);
                                         var u = SaveFile(uri, responseHtml, false, out uriChanged);
                                         url = u.OriginalString;
                                     }
@@ -126,7 +125,7 @@ namespace Doway.Tools.Robinhood
 
         private static Uri SaveFile(Uri uri, string content, bool overwrite, out bool uriChanged)
         {
-            string file_name = uri.LocalPath;
+            var file_name = uri.LocalPath;
             uriChanged = false;
             if (file_name.EndsWith("/"))
             {
@@ -138,7 +137,7 @@ namespace Doway.Tools.Robinhood
             if (file_name.StartsWith("\\"))
                 file_name = file_name.Remove(0, 1);
 
-            FileInfo f = new FileInfo(file_name);
+            var f = new FileInfo(file_name);
             if (!f.Exists || overwrite)
             {
                 if (!f.Directory.Exists)
@@ -152,7 +151,7 @@ namespace Doway.Tools.Robinhood
 
         private static Uri SaveFile(Uri uri, byte[] content, bool overwrite, out bool uriChanged)
         {
-            string file_name = uri.LocalPath;
+            var file_name = uri.LocalPath;
             uriChanged = false;
             if (file_name.EndsWith("/"))
             {
@@ -164,7 +163,7 @@ namespace Doway.Tools.Robinhood
             if (file_name.StartsWith("\\"))
                 file_name = file_name.Remove(0, 1);
 
-            FileInfo f = new FileInfo(file_name);
+            var f = new FileInfo(file_name);
             if (!f.Exists || overwrite)
             {
                 if (!f.Directory.Exists)
