@@ -2,8 +2,8 @@
 using log4net;
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
-using System.Text;
 
 namespace Doway.Tools.Robinhood
 {
@@ -24,39 +24,77 @@ namespace Doway.Tools.Robinhood
             if (!TargetFolder.Exists) TargetFolder.Create();
             GrabNode(StartPoint);
         }
-        private void GrabNode(Uri uri)
+        private void GrabNode(Uri uri, bool deleteExist = false)
         {
+            if (uri.Authority != StartPoint.Authority) return;
+
             var req = WebRequest.CreateHttp(uri);
-            using (var res = req.GetResponse())
+            try
             {
-                var file_path = uri.LocalPath;
-                if (file_path.EndsWith("/")) file_path += "index.html";
-                file_path = file_path.Replace(".aspx", ".html").Replace("/", "\\");
-                var file = new FileInfo(TargetFolder.FullName + file_path);
-                if (!file.Directory.Exists) file.Directory.Create();
-                if (res.ContentType.Contains("text"))
+                using (var res = req.GetResponse())
                 {
-                    string content = null;
-                    using (var sr = new StreamReader(res.GetResponseStream()))
+                    var file_path = uri.LocalPath;
+                    if (file_path.EndsWith("/")) file_path += "index.html";
+                    file_path = file_path.Replace(".aspx", ".html").Replace("/", "\\");
+                    var file = new FileInfo(TargetFolder.FullName + file_path);
+                    if (!file.Directory.Exists) file.Directory.Create();
+                    if (deleteExist && file.Exists) file.Delete();
+                    file.Refresh();
+                    if (file.Exists) return;
+
+                    if (res.ContentType.Contains("text"))
                     {
-                        content = sr.ReadToEnd();
-                        content.Replace(".aspx", ".html");
-                        using (var sw = file.CreateText())
-                            sw.Write(content);
+                        string content = null;
+                        using (var sr = new StreamReader(res.GetResponseStream()))
+                        {
+                            content = sr.ReadToEnd();
+                            using (var sw = file.CreateText())
+                                sw.Write(content.Replace(".aspx", ".html"));
+                        }
+                        if (res.ContentType.Contains("text/html"))
+                        {
+                            var s = uri.AbsolutePath.Split('/');
+                            var tmp = uri.Scheme + "://" + uri.Authority + string.Join("/", s.Take(s.Length - 1).ToArray());
+                            uri = new Uri(tmp);
+                            var doc = new HtmlDocument();
+                            doc.LoadHtml(content);
+                            foreach (var node in doc.DocumentNode.ChildNodes)
+                                Handle(node, uri);
+                        }
                     }
-                    if (res.ContentType.StartsWith("text/html"))
+                    else
                     {
-                        var doc = new HtmlDocument();
-                        doc.LoadHtml(content);
-                        foreach (var node in doc.DocumentNode.ChildNodes)
-                            Console.WriteLine(node + " " + node.Name);
+                        using (var fs = file.Create())
+                            res.GetResponseStream().CopyTo(fs);
                     }
                 }
             }
+            catch (WebException ex)
+            {
+                if (ex.Message.Contains("404"))
+                    _logger.Warn(ex.Message + "[" + uri + "]", ex);
+                else
+                {
+                    _logger.Error(ex.Message + "[" + uri + "]", ex);
+                    throw;
+                }
+            }
+            catch(Exception ex)
+            {
+                _logger.Error(ex.Message + "[" + uri + "]", ex);
+                throw;
+            }
         }
-        private static void Handle(HtmlNode node, WebClient client, ref Uri orgUri)
+        private static string Combine(Uri uri, string path)
         {
-            _logger.DebugFormat("node(type={0} / name={1})", node.GetType(), node.Name);
+            if (path.StartsWith("/"))
+                return uri.Scheme + "://" + uri.Authority + path;
+
+            return uri.AbsoluteUri + "/" + path;
+        }
+        private void Handle(HtmlNode node, Uri currentUri)
+        {
+            _logger.DebugFormat("node(type={0} / name={1} / currentUri={2})", node.GetType(), node.Name, currentUri);
             try
             {
                 switch (node.Name.ToLower())
@@ -64,129 +102,36 @@ namespace Doway.Tools.Robinhood
                     case "a":
                     case "link":
                         {
-                            var uriChanged = false;
                             var url = node.Attributes["href"]?.Value;
-                            if (!string.IsNullOrWhiteSpace(url))
+                            if (!string.IsNullOrWhiteSpace(url) && !url.Contains("javascript"))
                             {
-                                var uri = new Uri(url);
-                                if (uri.Authority == orgUri.Authority)
-                                {
-                                    var data = client.DownloadData(url);
-                                    var localPath = uri.LocalPath.ToLower();
-                                    if (localPath.EndsWith(".jpg") ||
-                                        localPath.EndsWith(".jpeg") ||
-                                        localPath.EndsWith(".gif") ||
-                                        localPath.EndsWith(".png") ||
-                                        localPath.EndsWith(".ico") ||
-                                        localPath.EndsWith(".zip"))
-                                    {
-                                        var u = SaveFile(uri, data, false, out uriChanged);
-                                        url = u.OriginalString;
-                                    }
-                                    else
-                                    {
-                                        var responseHtml = Encoding.UTF8.GetString(data);
-                                        var u = SaveFile(uri, responseHtml, false, out uriChanged);
-                                        url = u.OriginalString;
-                                    }
-                                    node.Attributes["href"].Value = url.Substring(url.IndexOf(orgUri.Authority) + orgUri.Authority.Length + 1);
-                                }
+                                if (!url.StartsWith("http")) url = Combine(currentUri, url);
+                                GrabNode(new Uri(url));
                             }
                         }
                         break;
                     case "img":
                     case "script":
                         {
-                            var uriChanged = false;
                             var url = node.Attributes["src"]?.Value;
                             if (!string.IsNullOrWhiteSpace(url))
                             {
-                                var uri = new Uri(url);
-                                if (uri.Authority == orgUri.Authority)
-                                {
-                                    var data = client.DownloadData(url);
-                                    var localPath = uri.LocalPath.ToLower();
-                                    if (localPath.EndsWith(".jpg") ||
-                                        localPath.EndsWith(".jpeg") ||
-                                        localPath.EndsWith(".gif") ||
-                                        localPath.EndsWith(".png") ||
-                                        localPath.EndsWith(".ico") ||
-                                        localPath.EndsWith(".zip"))
-                                    {
-                                        var u = SaveFile(uri, data, false, out uriChanged);
-                                        url = u.OriginalString;
-                                    }
-                                    else
-                                    {
-                                        var responseHtml = Encoding.UTF8.GetString(data);
-                                        var u = SaveFile(uri, responseHtml, false, out uriChanged);
-                                        url = u.OriginalString;
-                                    }
-                                    node.Attributes["src"].Value = url.Substring(url.IndexOf(orgUri.Authority) + orgUri.Authority.Length + 1);
-                                }
+                                if (!url.StartsWith("http")) url = Combine(currentUri, url);
+                                GrabNode(new Uri(url));
                             }
                         }
                         break;
+                    default:
+                        _logger.Warn(node.Name + " no need to process");
+                        break;
                 }
             }
-            catch (UriFormatException) { }
-            if (node.ChildNodes.Count > 0)
-                foreach (var subNode in node.ChildNodes)
-                    Handle(subNode, client, ref orgUri);
-        }
-
-        private static Uri SaveFile(Uri uri, string content, bool overwrite, out bool uriChanged)
-        {
-            var file_name = uri.LocalPath;
-            uriChanged = false;
-            if (file_name.EndsWith("/"))
+            catch (UriFormatException e)
             {
-                file_name += "index.html";
-                uri = new Uri(uri.OriginalString + "index.html");
-                uriChanged = true;
+                _logger.Error(node.OuterHtml + " " + e.Message, e);
             }
-            file_name = file_name.Replace('/', '\\');
-            if (file_name.StartsWith("\\"))
-                file_name = file_name.Remove(0, 1);
-
-            var f = new FileInfo(file_name);
-            if (!f.Exists || overwrite)
-            {
-                if (!f.Directory.Exists)
-                    f.Directory.Create();
-
-                using (var sw = new StreamWriter(f.FullName, false))
-                    sw.Write(content);
-            }
-            return uri;
-        }
-
-        private static Uri SaveFile(Uri uri, byte[] content, bool overwrite, out bool uriChanged)
-        {
-            var file_name = uri.LocalPath;
-            uriChanged = false;
-            if (file_name.EndsWith("/"))
-            {
-                file_name += "index.html";
-                uri = new Uri(uri.OriginalString + "index.html");
-                uriChanged = true;
-            }
-            file_name = file_name.Replace('/', '\\');
-            if (file_name.StartsWith("\\"))
-                file_name = file_name.Remove(0, 1);
-
-            var f = new FileInfo(file_name);
-            if (!f.Exists || overwrite)
-            {
-                if (!f.Directory.Exists)
-                    f.Directory.Create();
-
-                f.Delete();
-
-                using (var sw = f.Create())
-                    sw.Write(content, 0, content.Length);
-            }
-            return uri;
+            foreach (var subNode in node.ChildNodes)
+                Handle(subNode, currentUri);
         }
     }
 }
