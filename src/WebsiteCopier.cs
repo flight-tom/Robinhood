@@ -1,7 +1,6 @@
 ﻿using HtmlAgilityPack;
 using log4net;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -21,7 +20,7 @@ namespace Doway.Tools.Robinhood
         public DirectoryInfo TargetFolder { get; private set; }
         public void StartCopy()
         {
-            if (TargetFolder.Exists) TargetFolder.Delete(); // ensure the folderwould be empty.
+            if (TargetFolder.Exists) TargetFolder.Delete(true); // ensure the folder would be empty.
             if (!TargetFolder.Exists) TargetFolder.Create();
             GrabNode(StartPoint);
         }
@@ -30,10 +29,27 @@ namespace Doway.Tools.Robinhood
             var req = WebRequest.CreateHttp(uri);
             using (var res = req.GetResponse())
             {
+                var file_path = uri.LocalPath;
+                if (file_path.EndsWith("/")) file_path += "index.html";
+                file_path = file_path.Replace(".aspx", ".html").Replace("/", "\\");
+                var file = new FileInfo(TargetFolder.FullName + file_path);
+                if (!file.Directory.Exists) file.Directory.Create();
                 if (res.ContentType.Contains("text"))
                 {
+                    string content = null;
                     using (var sr = new StreamReader(res.GetResponseStream()))
                     {
+                        content = sr.ReadToEnd();
+                        content.Replace(".aspx", ".html");
+                        using (var sw = file.CreateText())
+                            sw.Write(content);
+                    }
+                    if (res.ContentType.StartsWith("text/html"))
+                    {
+                        var doc = new HtmlDocument();
+                        doc.LoadHtml(content);
+                        foreach (var node in doc.DocumentNode.ChildNodes)
+                            Console.WriteLine(node + " " + node.Name);
                     }
                 }
             }

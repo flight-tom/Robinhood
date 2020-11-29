@@ -38,6 +38,7 @@ namespace Doway.Tools.Robinhood
             {
                 _logger.Info("END");
                 Console.WriteLine("END");
+                Console.ReadLine();
             }
         }
         private static void ShowHelp()
