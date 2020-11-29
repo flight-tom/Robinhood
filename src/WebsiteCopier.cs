@@ -26,22 +26,22 @@ namespace Doway.Tools.Robinhood
         }
         private void GrabNode(Uri uri, bool deleteExist = false)
         {
-            if (uri.Authority != StartPoint.Authority) return;
-
-            var req = WebRequest.CreateHttp(uri);
             try
             {
+                if (uri.Authority != StartPoint.Authority) return;
+
+                var file_path = uri.LocalPath;
+                if (file_path.EndsWith("/")) file_path += "index.html";
+                file_path = file_path.Replace(".aspx", ".html").Replace("/", "\\");
+                var file = new FileInfo(TargetFolder.FullName + file_path);
+                if (!file.Directory.Exists) file.Directory.Create();
+                if (deleteExist && file.Exists) file.Delete();
+                file.Refresh();
+                if (file.Exists) return;
+
+                var req = WebRequest.CreateHttp(uri);
                 using (var res = req.GetResponse())
                 {
-                    var file_path = uri.LocalPath;
-                    if (file_path.EndsWith("/")) file_path += "index.html";
-                    file_path = file_path.Replace(".aspx", ".html").Replace("/", "\\");
-                    var file = new FileInfo(TargetFolder.FullName + file_path);
-                    if (!file.Directory.Exists) file.Directory.Create();
-                    if (deleteExist && file.Exists) file.Delete();
-                    file.Refresh();
-                    if (file.Exists) return;
-
                     if (res.ContentType.Contains("text"))
                     {
                         string content = null;
@@ -71,18 +71,16 @@ namespace Doway.Tools.Robinhood
             }
             catch (WebException ex)
             {
-                if (ex.Message.Contains("404"))
-                    _logger.Warn(ex.Message + "[" + uri + "]", ex);
+                if (ex.Message.Contains("404") || ex.Message.Contains("403"))
+                    _logger.Warn(ex.Message + "[" + uri + "]");
                 else
                 {
                     _logger.Error(ex.Message + "[" + uri + "]", ex);
-                    throw;
                 }
             }
             catch(Exception ex)
             {
                 _logger.Error(ex.Message + "[" + uri + "]", ex);
-                throw;
             }
         }
         private static string Combine(Uri uri, string path)
