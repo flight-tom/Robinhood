@@ -1,36 +1,42 @@
-﻿using System;
+﻿using HtmlAgilityPack;
+using log4net;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Text;
 
 namespace Doway.Tools.Robinhood
 {
     public class WebsiteCopier
     {
-        public WebsiteCopier(string url, string savePath) : this(new Uri(url), new DirectoryInfo(saveDir)) { }
+        private static readonly ILog _logger = LogManager.GetLogger(typeof(WebsiteCopier));
+        public WebsiteCopier(string url, string savePath) : this(new Uri(url), new DirectoryInfo(savePath)) { }
         public WebsiteCopier(Uri uri, DirectoryInfo saveTarget)
         {
             StartPoint = uri;
             TargetFolder = saveTarget;
         }
-
         public Uri StartPoint { get; private set; }
         public DirectoryInfo TargetFolder { get; private set; }
         public void StartCopy()
         {
-            using (var client = new WebClient())
+            if (TargetFolder.Exists) TargetFolder.Delete(); // ensure the folderwould be empty.
+            if (!TargetFolder.Exists) TargetFolder.Create();
+            GrabNode(StartPoint);
+        }
+        private void GrabNode(Uri uri)
+        {
+            var req = WebRequest.CreateHttp(uri);
+            using (var res = req.GetResponse())
             {
-                var responseHtml = Encoding.UTF8.GetString(client.DownloadData(url));
-                var uri = new Uri(url);
-                var doc = new HtmlDocument();
-                SaveFile(uri, responseHtml, false, out bool uriChanged);
-                doc.LoadHtml(responseHtml);
-                foreach (var node in doc.DocumentNode.ChildNodes)
-                    Handle(node, client, ref uri);
-
-                responseHtml = doc.DocumentNode.InnerHtml;
-                SaveFile(uri, responseHtml, true, out uriChanged);
+                if (res.ContentType.Contains("text"))
+                {
+                    using (var sr = new StreamReader(res.GetResponseStream()))
+                    {
+                    }
+                }
             }
-
         }
         private static void Handle(HtmlNode node, WebClient client, ref Uri orgUri)
         {

@@ -14,17 +14,42 @@ namespace Doway.Tools.Robinhood
             XmlConfigurator.ConfigureAndWatch(new FileInfo("log4net.config"));
             try
             {
-                var copier = new WebsiteCopier(args[0], args[1]);
-                copier.StartCopy();
+                Console.WriteLine("**Robinhood**");
+                Console.WriteLine(" License: LGPL v3");
+                Console.WriteLine(" Author: Tom Tang <tomtang0406@gmail.com>");
+                Console.WriteLine("==========================================");
+                if (args.Length > 1)
+                {
+                    var copier = new WebsiteCopier(args[0], args[1]);
+                    copier.StartCopy();
+                }
+                else
+                {
+                    ShowHelp();
+                }
             }
             catch (Exception ex)
             {
-                _logger.Fatal(ex.Message, ex);
+                _logger.Error(ex.Message, ex);
+                Console.WriteLine(ex);
+                throw;
             }
             finally
             {
-                Console.ReadLine();
+                _logger.Info("END");
+                Console.WriteLine("END");
             }
+        }
+        private static void ShowHelp()
+        {
+            Console.WriteLine("You didn't assign Robinhood arguments.");
+            Console.WriteLine("Usage:");
+            Console.WriteLine("Robinhood.exe <url> <save website folder>");
+            Console.WriteLine(" <url>:");
+            Console.WriteLine("     Give an url as the start point to begin grabbing.");
+            Console.WriteLine(" <save website folder>:");
+            Console.WriteLine("     Specified the local folder path for saving the grabbed stuff.");
+            Console.WriteLine("     If the folder didn't exist, it does creating folder.");
         }
     }
 }
