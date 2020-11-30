@@ -20,11 +20,10 @@ namespace Doway.Tools.Robinhood
         public DirectoryInfo TargetFolder { get; private set; }
         public void StartCopy()
         {
-            if (TargetFolder.Exists) TargetFolder.Delete(true); // ensure the folder would be empty.
             if (!TargetFolder.Exists) TargetFolder.Create();
             GrabNode(StartPoint);
         }
-        private void GrabNode(Uri uri, bool deleteExist = false)
+        private void GrabNode(Uri uri, bool deleteExist = true)
         {
             try
             {
@@ -50,6 +49,20 @@ namespace Doway.Tools.Robinhood
                             content = sr.ReadToEnd();
                             using (var sw = file.CreateText())
                                 sw.Write(content.Replace(".aspx", ".html"));
+                        }
+                        if(file.Extension.ToLower() == ".css")
+                        {
+                            var begin = content.IndexOf("url(");
+                            while (begin > 0)
+                            {
+                                var end = content.IndexOf(")", begin + "url(".Length);
+                                var length = end - (begin + "url(".Length);
+                                var url = content.Substring(begin + "url(".Length, length);
+                                if (!url.StartsWith("http")) url = Combine(uri, url);
+                                GrabNode(new Uri(url));
+
+                                begin = content.IndexOf("url(", end);
+                            }
                         }
                         if (res.ContentType.Contains("text/html"))
                         {
@@ -85,10 +98,11 @@ namespace Doway.Tools.Robinhood
         }
         private static string Combine(Uri uri, string path)
         {
+            path = path.Replace("\r\n", "").Trim();
             if (path.StartsWith("/"))
-                return uri.Scheme + "://" + uri.Authority + path;
+                return uri.Scheme + "://" + uri.Authority.Trim() + path;
 
-            return uri.AbsoluteUri + "/" + path;
+            return uri.AbsoluteUri.Trim() + "/" + path;
         }
         private void Handle(HtmlNode node, Uri currentUri)
         {
@@ -118,9 +132,6 @@ namespace Doway.Tools.Robinhood
                                 GrabNode(new Uri(url));
                             }
                         }
-                        break;
-                    default:
-                        _logger.Warn(node.Name + " no need to process");
                         break;
                 }
             }
