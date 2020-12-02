@@ -17,11 +17,12 @@ namespace Doway.Tools.Robinhood
             TargetFolder = saveTarget;
         }
         public Uri StartPoint { get; private set; }
+        public DateTime StartTime { get; private set; }
         public DirectoryInfo TargetFolder { get; private set; }
         public void StartCopy()
         {
-            // if (!TargetFolder.Exists) TargetFolder.Delete();
             if (!TargetFolder.Exists) TargetFolder.Create();
+            StartTime = DateTime.Now;
             GrabNode(StartPoint);
         }
         private void GrabNode(Uri uri, bool deleteExist = true)
@@ -35,8 +36,11 @@ namespace Doway.Tools.Robinhood
                 file_path = file_path.Replace(".aspx", ".html").Replace("/", "\\");
                 var file = new FileInfo(TargetFolder.FullName + file_path);
                 if (!file.Directory.Exists) file.Directory.Create();
-                if (deleteExist && file.Exists && (DateTime.Now - file.LastWriteTime).Hours > 2) file.Delete(); //兩小時內的檔案不做刪除
-                file.Refresh();
+                if (deleteExist && file.Exists && file.LastWriteTime < StartTime)
+                {
+                    file.Delete();
+                    file.Refresh();
+                }
                 if (file.Exists) return;
 
                 var req = WebRequest.CreateHttp(uri);
@@ -167,6 +171,9 @@ namespace Doway.Tools.Robinhood
                             }
                             ProcessScript(node.InnerHtml);
                         }
+                        break;
+                    case "style":
+                        ProcessCssStyle(node.InnerHtml);
                         break;
                 }
             }
