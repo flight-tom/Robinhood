@@ -20,6 +20,7 @@ namespace Doway.Tools.Robinhood
         public DirectoryInfo TargetFolder { get; private set; }
         public void StartCopy()
         {
+            // if (!TargetFolder.Exists) TargetFolder.Delete();
             if (!TargetFolder.Exists) TargetFolder.Create();
             GrabNode(StartPoint);
         }
@@ -34,14 +35,15 @@ namespace Doway.Tools.Robinhood
                 file_path = file_path.Replace(".aspx", ".html").Replace("/", "\\");
                 var file = new FileInfo(TargetFolder.FullName + file_path);
                 if (!file.Directory.Exists) file.Directory.Create();
-                if (deleteExist && file.Exists) file.Delete();
+                if (deleteExist && file.Exists && (DateTime.Now - file.LastWriteTime).Hours > 2) file.Delete(); //兩小時內的檔案不做刪除
                 file.Refresh();
                 if (file.Exists) return;
 
                 var req = WebRequest.CreateHttp(uri);
                 using (var res = req.GetResponse())
                 {
-                    if (res.ContentType.Contains("text"))
+                    if (res.ContentType.Contains("text") || 
+                        ".css|.js".Split('|').Contains(file.Extension))
                     {
                         string content = null;
                         using (var sr = new StreamReader(res.GetResponseStream()))
@@ -52,17 +54,11 @@ namespace Doway.Tools.Robinhood
                         }
                         if(file.Extension.ToLower() == ".css")
                         {
-                            var begin = content.IndexOf("url(");
-                            while (begin > 0)
-                            {
-                                var end = content.IndexOf(")", begin + "url(".Length);
-                                var length = end - (begin + "url(".Length);
-                                var url = content.Substring(begin + "url(".Length, length);
-                                if (!url.StartsWith("http")) url = Combine(uri, url);
-                                GrabNode(new Uri(url));
-
-                                begin = content.IndexOf("url(", end);
-                            }
+                            ProcessCssStyle(content);
+                        }
+                        if (file.Extension.ToLower() == ".js")
+                        {
+                            ProcessScript(content);
                         }
                         if (res.ContentType.Contains("text/html"))
                         {
@@ -96,9 +92,47 @@ namespace Doway.Tools.Robinhood
                 _logger.Error(ex.Message + "[" + uri + "]", ex);
             }
         }
+
+        private void ProcessCssStyle(string content)
+        {
+            var clue = "url(";
+            var begin = content.IndexOf(clue);
+            while (begin > 0)
+            {
+                var end = content.IndexOf(")", begin + clue.Length);
+                var length = end - (begin + clue.Length);
+                var url = content.Substring(begin + clue.Length, length);
+                if (!url.StartsWith("http")) url = Combine(StartPoint, url);
+                GrabNode(new Uri(url));
+
+                begin = content.IndexOf("url(", end);
+            }
+        }
+
+        private void ProcessScript(string content)
+        {
+            var clue = "window.location.href";
+            var begin = content.IndexOf(clue);
+            while (begin > 0)
+            {
+                var end = content.IndexOf(";", begin + clue.Length);
+                var length = end - (begin + clue.Length);
+                var url = content.Substring(begin + clue.Length, length);
+                url = url   // 去除多餘字元
+                    .Replace("=", string.Empty)
+                    .Replace("'", string.Empty)
+                    .Replace("\"", string.Empty);
+
+                if (!url.StartsWith("http")) url = Combine(StartPoint, url);
+                GrabNode(new Uri(url));
+
+                begin = content.IndexOf(clue, end);
+            }
+        }
+
         private static string Combine(Uri uri, string path)
         {
-            path = path.Replace("\r\n", "").Trim();
+            path = path.Replace("\r\n", string.Empty).Trim();
             if (path.StartsWith("/"))
                 return uri.Scheme + "://" + uri.Authority.Trim() + path;
 
@@ -131,6 +165,7 @@ namespace Doway.Tools.Robinhood
                                 if (!url.StartsWith("http")) url = Combine(currentUri, url);
                                 GrabNode(new Uri(url));
                             }
+                            ProcessScript(node.InnerHtml);
                         }
                         break;
                 }
