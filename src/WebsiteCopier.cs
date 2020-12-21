@@ -10,12 +10,17 @@ namespace Doway.Tools.Robinhood
     public class WebsiteCopier
     {
         private static readonly ILog _logger = LogManager.GetLogger(typeof(WebsiteCopier));
+        public WebsiteCopier(string mode, string url, string savePath) : this(new Uri(url), new DirectoryInfo(savePath))
+        {
+            Mode = mode;
+        }
         public WebsiteCopier(string url, string savePath) : this(new Uri(url), new DirectoryInfo(savePath)) { }
         public WebsiteCopier(Uri uri, DirectoryInfo saveTarget)
         {
             StartPoint = uri;
             TargetFolder = saveTarget;
         }
+        public string Mode { get; private set; }
         public Uri StartPoint { get; private set; }
         public DateTime StartTime { get; private set; }
         public DirectoryInfo TargetFolder { get; private set; }
@@ -51,21 +56,15 @@ namespace Doway.Tools.Robinhood
                     {
                         string content = null;
                         using (var sr = new StreamReader(res.GetResponseStream()))
-                        {
                             content = sr.ReadToEnd();
-                            using (var sw = file.CreateText())
-                                sw.Write(content.Replace(".aspx", ".html"));
-                        }
-                        if(file.Extension.ToLower() == ".css")
-                        {
-                            ProcessCssStyle(content);
-                        }
-                        if (file.Extension.ToLower() == ".js")
-                        {
-                            ProcessScript(content);
-                        }
+
                         if (res.ContentType.Contains("text/html"))
                         {
+                            if (string.IsNullOrEmpty(Mode))
+                            {
+                                using (var sw = file.CreateText())
+                                    sw.Write(content.Replace(".aspx", ".html"));
+                            }
                             var s = uri.AbsolutePath.Split('/');
                             var tmp = uri.Scheme + "://" + uri.Authority + string.Join("/", s.Take(s.Length - 1).ToArray());
                             uri = new Uri(tmp);
@@ -73,6 +72,20 @@ namespace Doway.Tools.Robinhood
                             doc.LoadHtml(content);
                             foreach (var node in doc.DocumentNode.ChildNodes)
                                 Handle(node, uri);
+
+                            if (Mode == "-P")
+                            {
+                                using (var sw = file.CreateText())
+                                    sw.Write(doc.DocumentNode.OuterHtml);
+                            }
+                        }
+                        if (file.Extension.ToLower() == ".css")
+                        {
+                            ProcessCssStyle(content);
+                        }
+                        if (file.Extension.ToLower() == ".js")
+                        {
+                            ProcessScript(content);
                         }
                     }
                     else
@@ -96,7 +109,6 @@ namespace Doway.Tools.Robinhood
                 _logger.Error(ex.Message + "[" + uri + "]", ex);
             }
         }
-
         private void ProcessCssStyle(string content)
         {
             var clue = "url(";
@@ -112,7 +124,6 @@ namespace Doway.Tools.Robinhood
                 begin = content.IndexOf("url(", end);
             }
         }
-
         private void ProcessScript(string content)
         {
             var clue = "window.location.href";
@@ -133,7 +144,6 @@ namespace Doway.Tools.Robinhood
                 begin = content.IndexOf(clue, end);
             }
         }
-
         private static string Combine(Uri uri, string path)
         {
             path = path.Replace("\r\n", string.Empty).Trim();
@@ -156,7 +166,10 @@ namespace Doway.Tools.Robinhood
                             if (!string.IsNullOrWhiteSpace(url) && !url.Contains("javascript"))
                             {
                                 if (!url.StartsWith("http")) url = Combine(currentUri, url);
-                                GrabNode(new Uri(url));
+                                if (string.IsNullOrEmpty(Mode))
+                                    GrabNode(new Uri(url));
+                                else
+                                    node.Attributes["href"].Value = url;
                             }
                         }
                         break;
@@ -167,13 +180,21 @@ namespace Doway.Tools.Robinhood
                             if (!string.IsNullOrWhiteSpace(url))
                             {
                                 if (!url.StartsWith("http")) url = Combine(currentUri, url);
-                                GrabNode(new Uri(url));
+                                if (string.IsNullOrEmpty(Mode))
+                                {
+                                    GrabNode(new Uri(url));
+                                    ProcessScript(node.InnerHtml);
+                                }
+                                else
+                                    node.Attributes["src"].Value = url;
                             }
-                            ProcessScript(node.InnerHtml);
                         }
                         break;
                     case "style":
-                        ProcessCssStyle(node.InnerHtml);
+                        if (string.IsNullOrEmpty(Mode))
+                        {
+                            ProcessCssStyle(node.InnerHtml);
+                        }
                         break;
                 }
             }

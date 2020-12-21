@@ -20,7 +20,16 @@ namespace Doway.Tools.Robinhood
                 Console.WriteLine("==========================================");
                 if (args.Length > 1)
                 {
-                    var copier = new WebsiteCopier(args[0], args[1]);
+                    WebsiteCopier copier = null;
+                    switch (args[0])
+                    {
+                        case "-P":
+                            copier = new WebsiteCopier(args[0], args[1], args[2]);
+                            break;
+                        default:
+                            copier = new WebsiteCopier(args[0], args[1]);
+                            break;
+                    }
                     copier.StartCopy();
                 }
                 else
@@ -47,7 +56,7 @@ namespace Doway.Tools.Robinhood
             Console.WriteLine("Usage:");
             Console.WriteLine("Robinhood.exe <url> <save website folder>");
             Console.WriteLine(" <url>:");
-            Console.WriteLine("     Give an url as the start point to begin grabbing.");
+            Console.WriteLine("     Give an url as the website root to begin grabbing.");
             Console.WriteLine(" <save website folder>:");
             Console.WriteLine("     Specified the local folder path for saving the grabbed stuff.");
             Console.WriteLine("     If the folder didn't exist, it does creating folder.");
