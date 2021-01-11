@@ -45,10 +45,10 @@ namespace Doway.Tools.Robinhood
         {
             Console.WriteLine("You didn't assign Robinhood arguments.");
             Console.WriteLine("Usage:");
-            Console.WriteLine("Robinhood.exe <url> <save website folder>");
+            Console.WriteLine("Robinhood.exe <url> <The folder to save website>");
             Console.WriteLine(" <url>:");
             Console.WriteLine("     Give an url as the start point to begin grabbing.");
-            Console.WriteLine(" <save website folder>:");
+            Console.WriteLine(" <The folder to save website>:");
             Console.WriteLine("     Specified the local folder path for saving the grabbed stuff.");
             Console.WriteLine("     If the folder didn't exist, it does creating folder.");
         }
