@@ -33,7 +33,7 @@ namespace Doway.Tools.Robinhood
 
                 var file_path = uri.LocalPath;
                 if (file_path.EndsWith("/")) file_path += "index.html";
-                file_path = file_path.Replace(".aspx", ".html").Replace("/", "\\");
+                file_path = RemoveActivePageWords(file_path);
                 var file = new FileInfo(TargetFolder.FullName + file_path);
                 if (!file.Directory.Exists) file.Directory.Create();
                 if (deleteExist && file.Exists && file.LastWriteTime < StartTime)
@@ -46,7 +46,7 @@ namespace Doway.Tools.Robinhood
                 var req = WebRequest.CreateHttp(uri);
                 using (var res = req.GetResponse())
                 {
-                    if (res.ContentType.Contains("text") || 
+                    if (res.ContentType.Contains("text") ||
                         ".css|.js".Split('|').Contains(file.Extension))
                     {
                         string content = null;
@@ -56,7 +56,7 @@ namespace Doway.Tools.Robinhood
                             using (var sw = file.CreateText())
                                 sw.Write(content.Replace(".aspx", ".html"));
                         }
-                        if(file.Extension.ToLower() == ".css")
+                        if (file.Extension.ToLower() == ".css")
                         {
                             ProcessCssStyle(content);
                         }
@@ -95,6 +95,15 @@ namespace Doway.Tools.Robinhood
             {
                 _logger.Error(ex.Message + "[" + uri + "]", ex);
             }
+        }
+
+        private static string RemoveActivePageWords(string file_path)
+        {
+            return file_path
+                .Replace(".aspx", ".html")
+                .Replace(".jsp", ".html")
+                .Replace(".php", ".html")
+                .Replace("/", "\\");
         }
 
         private void ProcessCssStyle(string content)
